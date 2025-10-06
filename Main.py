@@ -1,17 +1,18 @@
 import os
-import sqlite3
+# import sqlite3
 import logging
 from datetime import datetime
 import jdatetime
 import requests
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup, Update, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+import psycopg2
 
 # --- تنظیمات اولیه ---
 # بارگذاری متغیرهای محیطی از فایل .env
-load_dotenv()
+# load_dotenv()
 
 # خواندن متغیرها
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -25,42 +26,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- مدیریت دیتابیس (SQLite) ---
+# --- مدیریت دیتابیس ---
+def get_connection():
+    return psycopg2.connect(
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD")
+    )
+
 def setup_database():
-    """جدول کاربران را در دیتابیس ایجاد می‌کند."""
-    conn = sqlite3.connect('users.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        telegram_id INTEGER UNIQUE NOT NULL,
+        id SERIAL PRIMARY KEY,
+        telegram_id BIGINT UNIQUE NOT NULL,
         first_name TEXT NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
     conn.commit()
     conn.close()
-    logger.info("Database setup complete.")
 
 def add_user(user: dict):
-    """یک کاربر جدید را به دیتابیس اضافه می‌کند یا اطلاعاتش را به‌روز می‌کند."""
-    conn = sqlite3.connect('users.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT OR IGNORE INTO users (telegram_id, first_name) VALUES (?, ?)",
+        "INSERT INTO users (telegram_id, first_name) VALUES (%s, %s) ON CONFLICT (telegram_id) DO NOTHING",
         (user['id'], user['first_name'])
     )
     conn.commit()
     conn.close()
 
 def get_all_users():
-    """لیست تمام کاربران را از دیتابیس برمی‌گرداند."""
-    conn = sqlite3.connect('users.db')
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT telegram_id, first_name FROM users ORDER BY id DESC")
     users = cursor.fetchall()
     conn.close()
-    return users
+    return users        
 
 # --- توابع اسکریپینگ (Scraping) ---
 def get_jalali_datetime():
