@@ -22,28 +22,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- Environment Variables ---
-try:
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
-    ADMIN_ID = int(os.getenv("ADMIN_ID"))
-    # BASE_URL = os.environ.get("BASE_URL", "https://www.tgju.org/profile/")
-    BASE_URL = os.getenv("BASE_URL")
-    DATABASE_URL = os.getenv("DATABASE_URL")
-except KeyError as e:
-    logger.error(f"FATAL: Environment variable {e} not set.")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = os.getenv("ADMIN_ID")
+BASE_URL = os.getenv("BASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not BOT_TOKEN or not ADMIN_ID or not DATABASE_URL:
+    logger.error("FATAL: Missing essential environment variables.")
     exit(1)
+
+ADMIN_ID = int(ADMIN_ID)
+
 
 
 # --- مدیریت دیتابیس ---
+
 def get_connection():
+    if not DATABASE_URL:
+        logger.error("DATABASE_URL env var not set.")
+        return None
     try:
         result = urlparse(DATABASE_URL)
         return psycopg2.connect(
-           dbname=result.path[1:],    
-           user=result.username,
-           password=result.password,
-           host=result.hostname,
-           port=result.port
-       )
+            dbname=result.path[1:],    
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port
+        )
     except psycopg2.OperationalError as e:
         logger.error(f"Database connection error: {e}")
         return None
@@ -66,6 +72,9 @@ def setup_database():
 
 def add_user(user: dict):
     conn = get_connection()
+    if not conn:
+        logger.error("Database connection is not available. Skipping add_user.")
+        return     
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO users (telegram_id, first_name) VALUES (%s, %s) ON CONFLICT (telegram_id) DO NOTHING",
@@ -76,6 +85,9 @@ def add_user(user: dict):
 
 def get_all_users():
     conn = get_connection()
+    if not conn:
+        logger.error("Database connection is not available. Cannot get users.")
+        return [] # یک لیست خالی برگردون
     cursor = conn.cursor()
     cursor.execute("SELECT telegram_id, first_name FROM users ORDER BY id DESC")
     users = cursor.fetchall()
@@ -90,84 +102,169 @@ def get_jalali_datetime():
     time_str = now.strftime("ساعت %H:%M")
     return f"🗓️ {jalali_date}\n🕰️ {time_str}\n\n"
 
-def scrape_price(profile_id: str) -> str:
-    """قیمت را از یک پروفایل خاص در TGJU استخراج می‌کند."""
+def get_price_from_api(item_id: str) -> str:
+    """
+    دریافت قیمت از API داخلی TGJU بر اساس شناسه آیتم.
+    """
     try:
-        url = f"{BASE_URL}{profile_id}"
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        price_tag = soup.find("span", {"data-col": "info-price"})
-        return price_tag.text.strip() if price_tag else "یافت نشد"
+        url = "https://api.tgju.org/v1/widget/v2"
+        params = {
+            "type": "ticker",
+            "items": item_id,
+            "columns": "",
+            "token": "webservice"
+        }
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+
+        if "data" in data and item_id in data["data"]:
+            return data["data"][item_id]["p"]  # مقدار قیمت
+        else:
+            return "یافت نشد"
+
     except requests.RequestException as e:
-        logger.error(f"Error scraping {profile_id}: {e}")
+        logger.error(f"Error fetching {item_id} from API: {e}")
         return "خطا در اتصال"
 
 def get_gold_prices():
-    """قیمت طلا ۱۸ و ۲۴ عیار را برمی‌گرداند."""
-    geram18 = scrape_price("geram18")
-    geram24 = scrape_price("geram24")
-    message = "--- **قیمت طلا** ---\n"
-    message += f"طلای ۱۸ عیار: {geram18} تومان\n"
-    message += f"طلای ۲۴ عیار: {geram24} تومان"
+    geram18 = get_price_from_api("137121")  # شناسه واقعی طلای ۱۸ عیار
+    geram24 = get_price_from_api("137122")  # شناسه واقعی طلای ۲۴ عیار
+    return (
+        "--- **قیمت طلا** ---\n"
+        f"طلای ۱۸ عیار: {geram18} تومان\n"
+        f"طلای ۲۴ عیار: {geram24} تومان"
+    )
+
+def get_currency_prices():
+    usd = get_price_from_api("137203")   # شناسه دلار آزاد
+    eur = get_price_from_api("137205")   # شناسه یورو آزاد
+    return (
+        "--- **قیمت ارز (بازار آزاد)** ---\n"
+        f"دلار آمریکا: {usd} تومان\n"
+        f"یورو: {eur} تومان"
+    )
+
+# def get_tether_price():
+#     tether = get_price_from_api("175")  # شناسه تتر
+#     return (
+#         "--- **قیمت تتر** ---\n"
+#         f"Tether (USDT): {tether} تومان"
+#     )
+
+def get_parsian_prices():
+    parsian_items = {
+        "656113": "100 سوت",
+        "656115": "200 سوت",
+        "656121": "500 سوت",
+        
+    }
+    message = "--- **قیمت سکه پارسیان** ---\n"
+    for item_id, label in parsian_items.items():
+        price = get_price_from_api(item_id)
+        message += f"پارسیان {label}: {price} تومان\n"
+
+    # سکه گرمی
+    gerami_price = get_price_from_api("137141")  # شناسه سکه گرمی
+    message += f"\nسکه گرمی: {gerami_price} تومان"
     return message
 
 def get_coin_prices():
-    """قیمت انواع سکه را برمی‌گرداند."""
-    emami = scrape_price("sekee")
-    azadi = scrape_price("seke-azadi")
-    nim = scrape_price("seke-nim")
-    rob = scrape_price("seke-rob")
-    
-    emami86 = scrape_price("seke-emami-86")
-    nim86 = scrape_price("seke-nim-86")
-    rob86 = scrape_price("seke-rob-86")
-    
+    items = {
+        "137138": "سکه امامی",
+        "137137": "سکه آزادی",
+        "137139": "نیم سکه",
+        "137140": "ربع سکه",
+        "137142": "سکه امامی (86)",
+        "137143": "نیم سکه (86)",
+        "137144": "ربع سکه (86)",
+        "137158": "ارزش واقعی سکه",
+    }
     message = "--- **قیمت سکه** ---\n"
-    message += f"سکه امامی: {emami} تومان\n"
-    message += f"سکه آزادی: {azadi} تومان\n"
-    message += f"نیم سکه: {nim} تومان\n"
-    message += f"ربع سکه: {rob} تومان\n\n"
-    message += "--- **سکه طرح قدیم (۱۳۸۶)** ---\n"
-    message += f"سکه امامی (۸۶): {emami86} تومان\n"
-    message += f"نیم سکه (۸۶): {nim86} تومان\n"
-    message += f"ربع سکه (۸۶): {rob86} تومان"
-    return message
-    
-def get_currency_prices():
-    """قیمت دلار و یورو را برمی‌گرداند."""
-    usd = scrape_price("price_dollar_rl")
-    eur = scrape_price("price_eur")
-    message = "--- **قیمت ارز (بازار آزاد)** ---\n"
-    message += f"دلار آمریکا: {usd} تومان\n"
-    message += f"یورو: {eur} تومان"
+    for item_id, label in items.items():
+        price = get_price_from_api(item_id)
+        message += f"{label}: {price} تومان\n"
     return message
 
-def get_tether_price():
-    """قیمت تتر را برمی‌گرداند."""
-    tether = scrape_price("tether")
-    message = "--- **قیمت تتر** ---\n"
-    message += f"تتر (USDT): {tether} تومان"
-    return message
+# def scrape_price(profile_id: str) -> str:
+#     """قیمت را از یک پروفایل خاص در TGJU استخراج می‌کند."""
+#     try:
+#         url = f"{BASE_URL}{profile_id}"
+#         response = requests.get(url, timeout=10)
+#         response.raise_for_status()
+#         soup = BeautifulSoup(response.text, 'html.parser')
+#         price_tag = soup.find("span", {"data-col": "info-price"})
+#         return price_tag.text.strip() if price_tag else "یافت نشد"
+#     except requests.RequestException as e:
+#         logger.error(f"Error scraping {profile_id}: {e}")
+#         return "خطا در اتصال"
+
+
+# def get_gold_prices():
+#     """قیمت طلا ۱۸ و ۲۴ عیار را برمی‌گرداند."""
+#     geram18 = scrape_price("geram18")
+#     geram24 = scrape_price("geram24")
+#     message = "--- **قیمت طلا** ---\n"
+#     message += f"طلای ۱۸ عیار: {geram18} تومان\n"
+#     message += f"طلای ۲۴ عیار: {geram24} تومان"
+#     return message
+
+# def get_coin_prices():
+#     """قیمت انواع سکه را برمی‌گرداند."""
+#     emami = scrape_price("sekee")
+#     azadi = scrape_price("seke-azadi")
+#     nim = scrape_price("seke-nim")
+#     rob = scrape_price("seke-rob")
     
-def get_parsian_prices():
-    """قیمت سکه‌های پارسیان و گرمی را برمی‌گرداند."""
-    parsian_weights = ["100", "150", "200", "250", "300", "400", "500", "1g", "1.5g", "2g"]
-    parsian_labels = {
-        "100": "۱۰۰ سوت", "150": "۱۵۰ سوت", "200": "۲۰۰ سوت", "250": "۲۵۰ سوت",
-        "300": "۳۰۰ سوت", "400": "۴۰۰ سوت", "500": "۵۰۰ سوت",
-        "1g": "۱ گرم", "1.5g": "۱.۵ گرم", "2g": "۲ گرم"
-    }
+#     emami86 = scrape_price("seke-emami-86")
+#     nim86 = scrape_price("seke-nim-86")
+#     rob86 = scrape_price("seke-rob-86")
     
-    message = "--- **قیمت سکه پارسیان** ---\n"
-    for weight in parsian_weights:
-        price = scrape_price(f"parsian-{weight}")
-        label = parsian_labels.get(weight, weight)
-        message += f"پارسیان {label}: {price} تومان\n"
+#     message = "--- **قیمت سکه** ---\n"
+#     message += f"سکه امامی: {emami} تومان\n"
+#     message += f"سکه آزادی: {azadi} تومان\n"
+#     message += f"نیم سکه: {nim} تومان\n"
+#     message += f"ربع سکه: {rob} تومان\n\n"
+#     message += "--- **سکه طرح قدیم (۱۳۸۶)** ---\n"
+#     message += f"سکه امامی (۸۶): {emami86} تومان\n"
+#     message += f"نیم سکه (۸۶): {nim86} تومان\n"
+#     message += f"ربع سکه (۸۶): {rob86} تومان"
+#     return message
+    
+# def get_currency_prices():
+#     """قیمت دلار و یورو را برمی‌گرداند."""
+#     usd = scrape_price("price_dollar_rl")
+#     eur = scrape_price("price_eur")
+#     message = "--- **قیمت ارز (بازار آزاد)** ---\n"
+#     message += f"دلار آمریکا: {usd} تومان\n"
+#     message += f"یورو: {eur} تومان"
+#     return message
+
+# def get_tether_price():
+#     """قیمت تتر را برمی‌گرداند."""
+#     tether = scrape_price("tether")
+#     message = "--- **قیمت تتر** ---\n"
+#     message += f"تتر (USDT): {tether} تومان"
+#     return message
+    
+# def get_parsian_prices():
+#     """قیمت سکه‌های پارسیان و گرمی را برمی‌گرداند."""
+#     parsian_weights = ["100", "150", "200", "250", "300", "400", "500", "1g", "1.5g", "2g"]
+#     parsian_labels = {
+#         "100": "۱۰۰ سوت", "150": "۱۵۰ سوت", "200": "۲۰۰ سوت", "250": "۲۵۰ سوت",
+#         "300": "۳۰۰ سوت", "400": "۴۰۰ سوت", "500": "۵۰۰ سوت",
+#         "1g": "۱ گرم", "1.5g": "۱.۵ گرم", "2g": "۲ گرم"
+#     }
+    
+#     message = "--- **قیمت سکه پارسیان** ---\n"
+#     for weight in parsian_weights:
+#         price = scrape_price(f"parsian-{weight}")
+#         label = parsian_labels.get(weight, weight)
+#         message += f"پارسیان {label}: {price} تومان\n"
         
-    gerami_price = scrape_price("seke-gerami")
-    message += f"\nسکه گرمی: {gerami_price} تومان"
-    return message
+#     gerami_price = scrape_price("seke-gerami")
+#     message += f"\nسکه گرمی: {gerami_price} تومان"
+#     return message
 
 # --- توابع ربات تلگرام (Handlers) ---
 def start(update: Update, context: CallbackContext):
@@ -177,8 +274,7 @@ def start(update: Update, context: CallbackContext):
     
     keyboard = [
         ['طلا 🥇', 'سکه 🪙'],
-        ['ارز 💵', 'تتر ₮'],
-        ['سکه پارسیان ⚖️']
+        ['ارز 💵', 'سکه پارسیان ⚖️'],
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
@@ -203,8 +299,8 @@ def handle_message(update: Update, context: CallbackContext):
         response_text = get_coin_prices()
     elif user_choice == 'ارز 💵':
         response_text = get_currency_prices()
-    elif user_choice == 'تتر ₮':
-        response_text = get_tether_price()
+    # elif user_choice == 'تتر ₮':
+        # response_text = get_tether_price()
     elif user_choice == 'سکه پارسیان ⚖️':
         response_text = get_parsian_prices()
     else:
