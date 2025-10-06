@@ -163,8 +163,8 @@ def get_gold_prices():
     geram24 = get_price_by_id(ITEM_IDS["طلا ۲۴ عیار"])
     return (
         "----- **قیمت طلا** -----\n\n"
-        f"طلای ۱۸ عیار: {geram18}\n"
-        f"طلای ۲۴ عیار: {geram24}"
+        f"طلای ۱۸ عیار: `{geram18}`\n"
+        f"طلای ۲۴ عیار: `{geram24}`"
     )
 
 def get_currency_prices():
@@ -172,8 +172,8 @@ def get_currency_prices():
     eur = get_price_by_id(ITEM_IDS["یورو"])
     return (
         "----- **قیمت ارز (بازار آزاد)** -----\n\n"
-        f"دلار : {usd}\n"
-        f"یورو : {eur}"
+        f"دلار  : `{usd}`\n"
+        f"یورو : `{eur}`"
     )
 
 
@@ -184,9 +184,9 @@ def get_parsian_prices():
                   "پارسیان 500 سوت"
                   ]:
         price = get_price_by_id(ITEM_IDS[label])
-        message += f"{label}: {price}\n"
+        message += f"{label}: `{price}`\n"
     gerami_price = get_price_by_id(ITEM_IDS["سکه گرمی"])
-    message += f"\nسکه گرمی: {gerami_price}"
+    message += f"\nسکه گرمی: `{gerami_price}`"
     return message
 
 def get_coin_prices():
@@ -201,7 +201,7 @@ def get_coin_prices():
                   "ارزش واقعی سکه"
                   ]:
         price = get_price_by_id(ITEM_IDS[label])
-        message += f"{label}: {price}\n"
+        message += f"{label}: `{price}`\n"
     return message
 
 # -------------------- Telegram Handlers --------------------
@@ -217,7 +217,7 @@ def start(update: Update, context: CallbackContext):
     update.message.reply_text(
         f"سلام {user.first_name}!\n"
         "برای دریافت قیمت لحظه‌ای یکی از گزینه‌ها رو بزن\n" \
-        "مرجع سایت www.tgju.org\n\n" \
+        "مرجع قیمتها سایت www.tgju.org\n\n" \
         "(قیمت‌ها به تومان می‌باشد)",
         reply_markup=reply_markup
     )
@@ -258,7 +258,7 @@ def users(update: Update, context: CallbackContext):
         update.message.reply_text("هنوز هیچ کاربری ثبت نشده است.")
         return
 
-    message = "->-<- **لیست کاربران ربات** ->-<-\n\n"
+    message = "---- **لیست کاربران ربات** ----\n\n"
     for i, (telegram_id, first_name) in enumerate(users, 1):
         message += f"{i}. نام: {first_name} | آیدی: `{telegram_id}`\n"
 
