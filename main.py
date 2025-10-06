@@ -23,11 +23,11 @@ logger = logging.getLogger(__name__)
 
 # --- Environment Variables ---
 try:
-    BOT_TOKEN = os.environ["BOT_TOKEN"]
-    ADMIN_ID = int(os.environ["ADMIN_ID"])
+    BOT_TOKEN = os.getenv["BOT_TOKEN"]
+    ADMIN_ID = int(os.getenv["ADMIN_ID"])
     # BASE_URL = os.environ.get("BASE_URL", "https://www.tgju.org/profile/")
-    BASE_URL = os.environ.get("BASE_URL")
-    DATABASE_URL = os.environ["DATABASE_URL"]
+    BASE_URL = os.getenv("BASE_URL")
+    DATABASE_URL = os.getenv("DATABASE_URL")
 except KeyError as e:
     logger.error(f"FATAL: Environment variable {e} not set.")
     exit(1)
@@ -38,12 +38,12 @@ def get_connection():
     try:
         result = urlparse(DATABASE_URL)
         return psycopg2.connect(
-            dbname=result.path[1:],    # remove leading "/"
-            user=result.username,
-            password=result.password,
-            host=result.hostname,
-            port=result.port
-        )
+           dbname=result.path[1:],    
+           user=result.username,
+           password=result.password,
+           host=result.hostname,
+           port=result.port
+       )
     except psycopg2.OperationalError as e:
         logger.error(f"Database connection error: {e}")
         return None
