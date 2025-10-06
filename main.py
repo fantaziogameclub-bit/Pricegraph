@@ -44,11 +44,11 @@ ITEM_IDS = {
     "سکه گرمی": 137141,
     "سکه امامی": 137138,
     "سکه آزادی": 137137,
-    "نیم سکه": 137139,
-    "ربع سکه": 137140,
+    "نیم سکه  ": 137139,
+    "ربع سکه  ": 137140,
     "سکه امامی (86)": 137142,
-    "نیم سکه (86)": 137143,
-    "ربع سکه (86)": 137144,
+    "نیم سکه (86)  ": 137143,
+    "ربع سکه (86)  ": 137144,
     "ارزش واقعی سکه": 137158,
     
     
@@ -113,7 +113,7 @@ def get_all_users():
 # -------------------- Date (Jalali) --------------------
 def get_jalali_datetime():
     now = datetime.now()
-    jalali_date = jdatetime.datetime.fromgregorian(datetime=now).strftime("%A %d %B %Y")
+    jalali_date = jdatetime.datetime.fromgregorian(datetime=now).strftime("%A %Y %B %d")
     time_str = now.strftime("Time %H:%M")
     return f"🗓️ {jalali_date}\n🕰️ {time_str}\n\n"
 
@@ -124,7 +124,11 @@ def format_price(price_str: str) -> str:
         clean = ''.join(ch for ch in price_str if ch.isdigit())
         if not clean:
             return price_str
-        return "{:,}".format(int(clean))  # اگر جداکننده فارسی خواستی: .replace(",", "٬")
+        
+        # تبدیل ریال به تومان (تقسیم بر 10)
+        toman_value = int(clean) // 10
+
+        return "{:,}".format(toman_value)  # اگر جداکننده فارسی خواستی: .replace(",", "٬")
     except ValueError:
         return price_str
 
@@ -158,18 +162,18 @@ def get_gold_prices():
     geram18 = get_price_by_id(ITEM_IDS["طلا ۱۸ عیار"])
     geram24 = get_price_by_id(ITEM_IDS["طلا ۲۴ عیار"])
     return (
-        "--- **قیمت طلا** ---\n"
-        f"طلای ۱۸ عیار: {geram18} تومان\n"
-        f"طلای ۲۴ عیار: {geram24} تومان"
+        "--- **قیمت طلا** ---\n\n"
+        f"طلای ۱۸ عیار: {geram18}  تومان\n"
+        f"طلای ۲۴ عیار: {geram24}  تومان"
     )
 
 def get_currency_prices():
     usd = get_price_by_id(ITEM_IDS["دلار آمریکا"])
     eur = get_price_by_id(ITEM_IDS["یورو"])
     return (
-        "--- **قیمت ارز (بازار آزاد)** ---\n"
-        f"دلار آمریکا: {usd} تومان\n"
-        f"یورو: {eur} تومان"
+        "--- **قیمت ارز (بازار آزاد)** ---\n\n"
+        f"دلار : {usd}  تومان\n"
+        f"یورو: {eur}  تومان"
     )
 
 # def get_tether_price():
@@ -180,19 +184,30 @@ def get_currency_prices():
 #     )
 
 def get_parsian_prices():
-    message = "--- **قیمت سکه پارسیان** ---\n"
-    for label in ["پارسیان 100 سوت", "پارسیان 200 سوت", "پارسیان 500 سوت"]:
+    message = "---- **قیمت سکه پارسیان** ----\n\n"
+    for label in ["پارسیان 100 سوت", 
+                  "پارسیان 200 سوت", 
+                  "پارسیان 500 سوت"
+                  ]:
         price = get_price_by_id(ITEM_IDS[label])
-        message += f"{label}: {price} تومان\n"
+        message += f"{label}: {price}  تومان\n"
     gerami_price = get_price_by_id(ITEM_IDS["سکه گرمی"])
-    message += f"\nسکه گرمی: {gerami_price} تومان"
+    message += f"\nسکه گرمی: {gerami_price}  تومان"
     return message
 
 def get_coin_prices():
-    message = "--- **قیمت سکه** ---\n"
-    for label in ["سکه امامی", "سکه آزادی", "نیم سکه", "ربع سکه", "سکه امامی (86)", "نیم سکه (86)","ربع سکه (86)","ارزش واقعی سکه"]:
+    message = "---- **قیمت سکه** ----\n\n"
+    for label in ["سکه امامی",
+                  "سکه آزادی", 
+                  "نیم سکه  ", 
+                  "ربع سکه  ", 
+                  "سکه امامی (86)", 
+                  "نیم سکه (86)  ",
+                  "ربع سکه (86)  ",
+                  "ارزش واقعی سکه"
+                  ]:
         price = get_price_by_id(ITEM_IDS[label])
-        message += f"{label}: {price} تومان\n"
+        message += f"{label}: {price}  تومان\n"
     return message
 
 # -------------------- Telegram Handlers --------------------
@@ -207,7 +222,9 @@ def start(update: Update, context: CallbackContext):
 
     update.message.reply_text(
         f"سلام {user.first_name}!\n"
-        "یکی از گزینه‌های زیر را انتخاب کنید:",
+        "برای دریافت قیمت لحظه ای از سایت " \
+        "طلا، سکه، ارز www.tgju.org" \
+        " یکی از گزینه ها رو بزن",
         reply_markup=reply_markup
     )
 
@@ -216,7 +233,7 @@ def handle_message(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
 
     # پیام لودینگ
-    loading_message = context.bot.send_message(chat_id=chat_id, text="لطفا صبر کنید، در حال دریافت اطلاعات...")
+    loading_message = context.bot.send_message(chat_id=chat_id, text="کمی صبر کنید، در حال دریافت قیمت...")
 
     if user_choice == 'طلا 🥇':
         response_text = get_gold_prices()
