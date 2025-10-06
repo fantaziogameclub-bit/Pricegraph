@@ -3,3 +3,4 @@ requests
 beautifulsoup4
 jdatetime
 python-dotenv
+psycopg2-binary
