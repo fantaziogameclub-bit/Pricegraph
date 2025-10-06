@@ -17,8 +17,8 @@ import psycopg2
 # خواندن متغیرها
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
-BASE_URL = os.getenv("BASE_URL", "https://www.tgju.org/profile/")
-
+BASE_URL = os.getenv("BASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
 # پیکربندی لاگ‌ها برای دیباگ بهتر
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -28,14 +28,17 @@ logger = logging.getLogger(__name__)
 
 # --- مدیریت دیتابیس ---
 def get_connection():
-    return psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD")
-    )
-
+    # database_url = os.getenv("DATABASE_URL")
+    if DATABASE_URL:
+        return psycopg2.connect(DATABASE_URL)
+    else:
+        return psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
 def setup_database():
     conn = get_connection()
     cursor = conn.cursor()
