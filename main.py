@@ -13,8 +13,7 @@ from urllib.parse import urlparse
 # -------------------- Logging --------------------
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
+    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # -------------------- Environment Variables --------------------
@@ -44,13 +43,13 @@ ITEM_IDS = {
     "سکه گرمی": 137141,
     "سکه امامی": 137138,
     "سکه آزادی": 137137,
-    "نیم سکه  ": 137139,
-    "ربع سکه  ": 137140,
+    "نیم  سکه  ": 137139,
+    "ربع  سکه  ": 137140,
     "سکه امامی (86)": 137142,
-    "نیم سکه (86)  ": 137143,
-    "ربع سکه (86)  ": 137144,
+    "نیم   سکه (86)": 137143,
+    "ربع   سکه (86)": 137144,
     "ارزش واقعی سکه": 137158,
-    
+    # ref: https://www.tgju.org/widget/get/ticker#ids=137119
     
 }
 
@@ -113,9 +112,10 @@ def get_all_users():
 # -------------------- Date (Jalali) --------------------
 def get_jalali_datetime():
     now = datetime.now()
-    jalali_date = jdatetime.datetime.fromgregorian(datetime=now).strftime("%A %Y %B %d")
+    jalali_date_day = jdatetime.datetime.fromgregorian(datetime=now).strftime("%A")
+    jalali_date = jdatetime.datetime.fromgregorian(datetime=now).strftime("%Y %B %d")
     time_str = now.strftime("Time %H:%M")
-    return f"🗓️ {jalali_date}\n🕰️ {time_str}\n\n"
+    return f"🗓️ {jalali_date_day}\n🗓️ {jalali_date}\n🕰️ {time_str}\n\n"
 
 # -------------------- TGJU API: Numeric ID --------------------
 def format_price(price_str: str) -> str:
@@ -162,52 +162,46 @@ def get_gold_prices():
     geram18 = get_price_by_id(ITEM_IDS["طلا ۱۸ عیار"])
     geram24 = get_price_by_id(ITEM_IDS["طلا ۲۴ عیار"])
     return (
-        "--- **قیمت طلا** ---\n\n"
-        f"طلای ۱۸ عیار: {geram18}  تومان\n"
-        f"طلای ۲۴ عیار: {geram24}  تومان"
+        "-=x=- **قیمت طلا** -=x=-\n\n"
+        f"طلای ۱۸ عیار: {geram18}\n"
+        f"طلای ۲۴ عیار: {geram24}"
     )
 
 def get_currency_prices():
     usd = get_price_by_id(ITEM_IDS["دلار آمریکا"])
     eur = get_price_by_id(ITEM_IDS["یورو"])
     return (
-        "--- **قیمت ارز (بازار آزاد)** ---\n\n"
-        f"دلار : {usd}  تومان\n"
-        f"یورو: {eur}  تومان"
+        "-+x+- **قیمت ارز (بازار آزاد)** -+x+-\n\n"
+        f"دلار  💵: {usd}\n"
+        f"یورو 💶: {eur}"
     )
 
-# def get_tether_price():
-#     tether = get_price_by_id(ITEM_IDS["تتر (USDT)"])
-#     return (
-#         "--- **قیمت تتر** ---\n"
-#         f"Tether (USDT): {tether} تومان"
-#     )
 
 def get_parsian_prices():
-    message = "---- **قیمت سکه پارسیان** ----\n\n"
+    message = "--x-- **قیمت سکه پارسیان** --x--\n\n"
     for label in ["پارسیان 100 سوت", 
                   "پارسیان 200 سوت", 
                   "پارسیان 500 سوت"
                   ]:
         price = get_price_by_id(ITEM_IDS[label])
-        message += f"{label}: {price}  تومان\n"
+        message += f"{label}: {price}\n"
     gerami_price = get_price_by_id(ITEM_IDS["سکه گرمی"])
-    message += f"\nسکه گرمی: {gerami_price}  تومان"
+    message += f"\nسکه گرمی: {gerami_price}"
     return message
 
 def get_coin_prices():
-    message = "---- **قیمت سکه** ----\n\n"
+    message = "--<>-- **قیمت سکه** --<>--\n\n"
     for label in ["سکه امامی",
                   "سکه آزادی", 
-                  "نیم سکه  ", 
-                  "ربع سکه  ", 
+                  "نیم  سکه  ", 
+                  "ربع  سکه  ", 
                   "سکه امامی (86)", 
-                  "نیم سکه (86)  ",
-                  "ربع سکه (86)  ",
+                  "نیم   سکه (86)",
+                  "ربع   سکه (86)",
                   "ارزش واقعی سکه"
                   ]:
         price = get_price_by_id(ITEM_IDS[label])
-        message += f"{label}: {price}  تومان\n"
+        message += f"{label}: {price}\n"
     return message
 
 # -------------------- Telegram Handlers --------------------
@@ -215,16 +209,16 @@ def start(update: Update, context: CallbackContext):
     user = update.effective_user
     add_user(user)
     keyboard = [
-        ['طلا 🥇', 'سکه 🪙'],
-        ['ارز 💵', 'سکه پارسیان ⚖️']
+        ['طلا', 'سکه'],
+        ['ارز', 'سکه پارسیان']
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     update.message.reply_text(
         f"سلام {user.first_name}!\n"
-        "برای دریافت قیمت لحظه ای از سایت " \
-        "طلا، سکه، ارز www.tgju.org" \
-        " یکی از گزینه ها رو بزن",
+        "برای دریافت قیمت لحظه‌ای یکی از گزینه‌ها رو بزن\n" \
+        "مرجع سایت www.tgju.org\n" \
+        "(قیمت‌ها به تومان می‌باشد)",
         reply_markup=reply_markup
     )
 
@@ -233,21 +227,19 @@ def handle_message(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
 
     # پیام لودینگ
-    loading_message = context.bot.send_message(chat_id=chat_id, text="کمی صبر کنید، در حال دریافت قیمت...")
+    loading_message = context.bot.send_message(chat_id=chat_id, text="کمی صبر کنید، در حال گرفتن قیمت...")
 
-    if user_choice == 'طلا 🥇':
+    if user_choice == 'طلا':
         response_text = get_gold_prices()
-    elif user_choice == 'سکه 🪙':
+    elif user_choice == 'سکه':
         response_text = get_coin_prices()
-    elif user_choice == 'ارز 💵':
+    elif user_choice == 'ارز':
         response_text = get_currency_prices()
-    elif user_choice == 'سکه پارسیان ⚖️':
+    elif user_choice == 'سکه پارسیان':
         response_text = get_parsian_prices()
-    # elif user_choice == 'تتر ₮':
-    #     response_text = get_tether_price()
     else:
         context.bot.delete_message(chat_id=chat_id, message_id=loading_message.message_id)
-        update.message.reply_text("لطفاً یکی از گزینه‌های روی کیبورد را انتخاب کنید.")
+        update.message.reply_text("لطفاً یکی از گزینه‌های استاندارد را انتخاب کنید.")
         return
 
     full_message = get_jalali_datetime() + response_text
@@ -266,7 +258,7 @@ def users(update: Update, context: CallbackContext):
         update.message.reply_text("هنوز هیچ کاربری ثبت نشده است.")
         return
 
-    message = "--- **لیست کاربران ربات** ---\n\n"
+    message = "-><- **لیست کاربران ربات** -><-\n\n"
     for i, (telegram_id, first_name) in enumerate(users, 1):
         message += f"{i}. نام: {first_name} | آیدی: `{telegram_id}`\n"
 
@@ -286,29 +278,7 @@ def main():
     logger.info("Bot started polling.")
     updater.idle()
     
-# def main():
-#     setup_database()
-#     updater = Updater(BOT_TOKEN)
-#     dispatcher = updater.dispatcher
-
-#     dispatcher.add_handler(CommandHandler("start", start))
-#     dispatcher.add_handler(CommandHandler("users", list_users))
-#     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-#     updater.start_polling()
-#     logger.info("Bot started polling.")
-#     updater.idle()
 
 if __name__ == '__main__':
     main()
 
-
-# if __name__ == "__main__":
-#     for label, item_id in ITEM_IDS.items():
-#         price_info = get_price_by_id(item_id)
-#         if price_info:
-#             # price_info اینجا الان فقط رشته قیمت رو برمی‌گردونه چون get_price_by_id از قبل format_price رو اجرا می‌کنه
-#             formatted = format_price(price_info)
-#             print(f"{label}: {formatted} تومان")
-#         else:
-#             print(f"{label}: داده یافت نشد")
