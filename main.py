@@ -1,56 +1,67 @@
 import os
-# import sqlite3
 import logging
+import psycopg2
 from datetime import datetime
 import jdatetime
 import requests
 from bs4 import BeautifulSoup
-# from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup, Update, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-import psycopg2
+from urllib.parse import urlparse
+
 
 # --- تنظیمات اولیه ---
 # بارگذاری متغیرهای محیطی از فایل .env
 # load_dotenv()
 
-# خواندن متغیرها
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
-BASE_URL = os.getenv("BASE_URL")
-DATABASE_URL = os.getenv("DATABASE_URL")
-# پیکربندی لاگ‌ها برای دیباگ بهتر
+# --- Logging Configuration ---
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
+# --- Environment Variables ---
+try:
+    BOT_TOKEN = os.environ["BOT_TOKEN"]
+    ADMIN_ID = int(os.environ["ADMIN_ID"])
+    # BASE_URL = os.environ.get("BASE_URL", "https://www.tgju.org/profile/")
+    BASE_URL = os.environ.get("BASE_URL")
+    DATABASE_URL = os.environ["DATABASE_URL"]
+except KeyError as e:
+    logger.error(f"FATAL: Environment variable {e} not set.")
+    exit(1)
+
+
 # --- مدیریت دیتابیس ---
 def get_connection():
-    # database_url = os.getenv("DATABASE_URL")
-    if DATABASE_URL:
-        return psycopg2.connect(DATABASE_URL)
-    else:
+    try:
+        result = urlparse(DATABASE_URL)
         return psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD")
+            dbname=result.path[1:],    # remove leading "/"
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port
         )
+    except psycopg2.OperationalError as e:
+        logger.error(f"Database connection error: {e}")
+        return None
+    
 def setup_database():
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        telegram_id BIGINT UNIQUE NOT NULL,
-        first_name TEXT NOT NULL,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-    conn.commit()
+    if not conn:
+        return
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                telegram_id BIGINT UNIQUE NOT NULL,
+                first_name TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
     conn.close()
 
 def add_user(user: dict):
