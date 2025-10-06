@@ -162,7 +162,7 @@ def get_gold_prices():
     geram18 = get_price_by_id(ITEM_IDS["طلا ۱۸ عیار"])
     geram24 = get_price_by_id(ITEM_IDS["طلا ۲۴ عیار"])
     return (
-        "--<->-- **قیمت طلا** --<->--\n\n"
+        "----- **قیمت طلا** -----\n\n"
         f"طلای ۱۸ عیار: {geram18}\n"
         f"طلای ۲۴ عیار: {geram24}"
     )
@@ -171,14 +171,14 @@ def get_currency_prices():
     usd = get_price_by_id(ITEM_IDS["دلار آمریکا"])
     eur = get_price_by_id(ITEM_IDS["یورو"])
     return (
-        "--<->-- **قیمت ارز (بازار آزاد)** --<->--\n\n"
+        "----- **قیمت ارز (بازار آزاد)** -----\n\n"
         f"دلار : {usd}\n"
         f"یورو : {eur}"
     )
 
 
 def get_parsian_prices():
-    message = "--<->-- **قیمت سکه پارسیان** --<->--\n\n"
+    message = "----- **قیمت سکه پارسیان** -----\n\n"
     for label in ["پارسیان 100 سوت", 
                   "پارسیان 200 سوت", 
                   "پارسیان 500 سوت"
@@ -190,7 +190,7 @@ def get_parsian_prices():
     return message
 
 def get_coin_prices():
-    message = "--<->-- **قیمت سکه** --<->--\n\n"
+    message = "----- **قیمت سکه** -----\n\n"
     for label in ["تمام سکه امامی",
                   "تمام سکه آزادی", 
                   "نیم  سکه", 
