@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 # --- Environment Variables ---
 try:
-    BOT_TOKEN = os.getenv["BOT_TOKEN"]
-    ADMIN_ID = int(os.getenv["ADMIN_ID"])
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    ADMIN_ID = int(os.getenv("ADMIN_ID"))
     # BASE_URL = os.environ.get("BASE_URL", "https://www.tgju.org/profile/")
     BASE_URL = os.getenv("BASE_URL")
     DATABASE_URL = os.getenv("DATABASE_URL")
