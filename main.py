@@ -114,35 +114,43 @@ def get_all_users():
 def get_jalali_datetime():
     now = datetime.now()
     jalali_date = jdatetime.datetime.fromgregorian(datetime=now).strftime("%A %d %B %Y")
-    time_str = now.strftime("ساعت %H:%M")
+    time_str = now.strftime("Time %H:%M")
     return f"🗓️ {jalali_date}\n🕰️ {time_str}\n\n"
 
 # -------------------- TGJU API: Numeric ID --------------------
+def format_price(price_str: str) -> str:
+    """تبدیل قیمت به عدد و جدا کردن سه رقمی با کاما (یا جداکننده فارسی)"""
+    try:
+        clean = ''.join(ch for ch in price_str if ch.isdigit())
+        if not clean:
+            return price_str
+        return "{:,}".format(int(clean))  # اگر جداکننده فارسی خواستی: .replace(",", "٬")
+    except ValueError:
+        return price_str
+
+
 def get_price_by_id(item_id: int):
     """دریافت قیمت از API TGJU با ID عددی و پاکسازی HTML"""
-    try:
-        url = f"https://api.tgju.org/v1/widget/tmp?keys={item_id}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/118.0 Safari/537.36",
-            "Accept": "application/json"
-        }
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
+    # try:
+    url = f"https://api.tgju.org/v1/widget/tmp?keys={item_id}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/118.0 Safari/537.36",
+        "Accept": "application/json"
+    }
+    resp = requests.get(url, headers=headers, timeout=10)
+    resp.raise_for_status()
 
-        data = resp.json()
-        indicators = data["response"]["indicators"]
-        if not indicators:
-            return "یافت نشد"
+    data = resp.json()
+    indicators = data["response"]["indicators"]
+    if not indicators:
+        return "یافت نشد"
 
-        #  raw_html = indicators[0]["prices"]
-        raw_html = indicators[0]["p"]
-        clean_prices = BeautifulSoup(raw_html, "html.parser").get_text()
-        return clean_prices
+    raw_html = indicators[0]["p"]  # یا "prices" بسته به خروجی
+    clean_prices = BeautifulSoup(raw_html, "html.parser").get_text()
 
-    except requests.RequestException as e:
-        logger.error(f"Error fetching {item_id}: {e}")
-        return "خطا در اتصال"
+    # اعمال فرمت سه رقمی جداکننده
+    return format_price(clean_prices)
 
 
 # -------------------- Price Functions --------------------
@@ -230,7 +238,7 @@ def handle_message(update: Update, context: CallbackContext):
     context.bot.delete_message(chat_id=chat_id, message_id=loading_message.message_id)
     update.message.reply_text(full_message, parse_mode='Markdown')
 
-def list_users(update: Update, context: CallbackContext):
+def users(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
         update.message.reply_text("شما اجازه‌ی دسترسی به این دستور را ندارید.")
@@ -254,12 +262,36 @@ def main():
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("users", list_users))
+    dispatcher.add_handler(CommandHandler("users", users))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
     updater.start_polling()
     logger.info("Bot started polling.")
     updater.idle()
+    
+# def main():
+#     setup_database()
+#     updater = Updater(BOT_TOKEN)
+#     dispatcher = updater.dispatcher
+
+#     dispatcher.add_handler(CommandHandler("start", start))
+#     dispatcher.add_handler(CommandHandler("users", list_users))
+#     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+
+#     updater.start_polling()
+#     logger.info("Bot started polling.")
+#     updater.idle()
 
 if __name__ == '__main__':
     main()
+
+
+# if __name__ == "__main__":
+#     for label, item_id in ITEM_IDS.items():
+#         price_info = get_price_by_id(item_id)
+#         if price_info:
+#             # price_info اینجا الان فقط رشته قیمت رو برمی‌گردونه چون get_price_by_id از قبل format_price رو اجرا می‌کنه
+#             formatted = format_price(price_info)
+#             print(f"{label}: {formatted} تومان")
+#         else:
+#             print(f"{label}: داده یافت نشد")
